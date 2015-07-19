@@ -42,7 +42,7 @@
                                                    +-------------------------------------+
 */
 
-#include "platform.h"
+#include "platform/platform.h"
 
 
 // game class
