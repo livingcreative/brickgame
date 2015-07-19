@@ -51,6 +51,12 @@ class Game
 public:
     void ProcessInput(PlatformAPI &api, const Input &input)
     {
+        // check for ESC key for quit
+        if (input.keyboard.keys[KEY_ESCAPE]) {
+            api.Quit();
+        }
+
+        // debug output all events
         for (size_t e = 0; e < input.event_count; ++e) {
             const InputEvent &event = input.events[e];
             switch (event.type) {

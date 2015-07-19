@@ -181,6 +181,11 @@ static BOOL CALLBACK DIEnumDevicesCallback(LPCDIDEVICEINSTANCEA lpddi, LPVOID pv
 class WindowsPlatform : public PlatformAPI
 {
 public:
+    void Quit() override
+    {
+        PostQuitMessage(0);
+    }
+
     void DEBUGPrint(const char *format, ...) override
     {
 #if defined(_DEBUG) || defined(DEBUG)

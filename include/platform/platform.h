@@ -313,5 +313,7 @@ struct Input
 class PlatformAPI
 {
 public:
+    virtual void Quit() = 0;
+
     virtual void DEBUGPrint(const char *format, ...) = 0;
 };
