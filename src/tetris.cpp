@@ -42,6 +42,78 @@
                                                    +-------------------------------------+
 */
 
+#include "platform.h"
+
+
+// game class
+class Game
+{
+public:
+    void ProcessInput(PlatformAPI &api, const Input &input)
+    {
+        for (size_t e = 0; e < input.event_count; ++e) {
+            const InputEvent &event = input.events[e];
+            switch (event.type) {
+                case INPUT_MOUSE_DOWN:
+                    api.DEBUGPrint("Mouse %i button down\n", event.mouse.button);
+                    break;
+
+                case INPUT_MOUSE_UP:
+                    api.DEBUGPrint("Mouse %i button up\n", event.mouse.button);
+                    break;
+
+                case INPUT_MOUSE_MOVE:
+                    api.DEBUGPrint("Mouse moved: %i %i\n", event.mouse.x, event.mouse.y);
+                    break;
+
+                case INPUT_MOUSE_WHEEL:
+                    break;
+
+                case INPUT_KEY_DOWN:
+                    api.DEBUGPrint("Key %i down\n", event.keyboard.key);
+                    break;
+
+                case INPUT_KEY_UP:
+                    api.DEBUGPrint("Key %i up\n", event.keyboard.key);
+                    break;
+
+                case INPUT_CHAR:
+                    break;
+
+                case INPUT_BUTTON_DOWN:
+                    api.DEBUGPrint(
+                        "Joystick %i button %i down\n",
+                        event.joystick.number, event.joystick.button
+                    );
+                    break;
+
+                case INPUT_BUTTON_UP:
+                    api.DEBUGPrint(
+                        "Joystick %i button %i up\n",
+                        event.joystick.number, event.joystick.button
+                    );
+                    break;
+
+                case INPUT_AXIS:
+                    api.DEBUGPrint(
+                        "Joystick %i axis %i moved to %i\n",
+                        event.joystick.number, event.joystick.axis.axis,
+                        event.joystick.axis.value
+                    );
+                    break;
+
+                case INPUT_POV:
+                    api.DEBUGPrint(
+                        "Joystick %i pov %i moved to %i\n",
+                        event.joystick.number, event.joystick.pov.pov,
+                        event.joystick.pov.value
+                    );
+                    break;
+            }
+        }
+    }
+};
+
 // main platform source - contains platform entry point and platform specific
 // functions
 #include "platform.cpp"
