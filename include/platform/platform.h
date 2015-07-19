@@ -207,6 +207,11 @@ enum InputJoystickAxis
     JOY_AXIS_COUNT
 };
 
+enum InputJoystickAxisMaxValue
+{
+    JOY_AXIS_MAX_VALUE = 65535
+};
+
 enum InputJoystickPOV
 {
     JOY_POV_0,

@@ -289,6 +289,8 @@ int APIENTRY WinMain(
     HDC gldc = 0;
     HGLRC glrc = 0;
 
+    LARGE_INTEGER frequency;
+
     WindowData data = { &gldc };
 
     // this is "loop trick"
@@ -322,6 +324,9 @@ int APIENTRY WinMain(
 
         // set window data
         SetWindowLongPtrA(mainwindow, GWLP_USERDATA, LONG(&data));
+
+        // initialize timer frequency
+        QueryPerformanceFrequency(&frequency);
 
         // initialize input (DirectX Input)
         DirectInput8Create(hInstance, DIRECTINPUT_VERSION, IID_IDirectInput8A, reinterpret_cast<LPVOID*>(&input), nullptr);
@@ -420,8 +425,15 @@ int APIENTRY WinMain(
         data.api = &api;
         data.game = &game;
 
+        LARGE_INTEGER lasttime;
+        QueryPerformanceCounter(&lasttime);
+
         bool running = mainwindow != 0;
         while (running) {
+            // query current time to get interval last frame took
+            LARGE_INTEGER currenttime;
+            QueryPerformanceCounter(&currenttime);
+
             // reset event count, events passed by frame basis
             input.event_count = 0;
 
@@ -542,6 +554,13 @@ int APIENTRY WinMain(
 
             // pass input to game
             game.ProcessInput(api, input);
+
+            // update game state (and animations)
+            game.Update(
+                double(currenttime.QuadPart - lasttime.QuadPart) /
+                double(frequency.QuadPart)
+            );
+            lasttime = currenttime;
 
             // render game graphics
             RenderGameFrame(api, mainwindow, gldc, game);

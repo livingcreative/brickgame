@@ -54,7 +54,9 @@ public:
         p_mouse_x(0),
         p_mouse_y(0),
         p_box_x(10),
-        p_box_y(10)
+        p_box_y(10),
+        p_box_speed_x(0),
+        p_box_speed_y(0)
     {}
 
     void ProcessInput(PlatformAPI &api, const Input &input)
@@ -69,106 +71,31 @@ public:
         p_mouse_x = float(input.mouse.x);
         p_mouse_y = float(input.mouse.y);
 
-        // where to move big rectangle?
-        bool left = false;
-        bool up = false;
-        bool right = false;
-        bool down = false;
+        float speed = 1000; // pixels per second
 
-        // debug output all events
-        for (size_t e = 0; e < input.event_count; ++e) {
-            const InputEvent &event = input.events[e];
-            switch (event.type) {
-                case INPUT_MOUSE_DOWN:
-                    api.DEBUGPrint("Mouse %i button down\n", event.mouse.button);
-                    break;
+        // compute new speed vector
+        p_box_speed_x = (float(input.joystick[0].axes[0]) / JOY_AXIS_MAX_VALUE * 2 - 1) * speed;
+        p_box_speed_y = (float(input.joystick[0].axes[1]) / JOY_AXIS_MAX_VALUE * 2 - 1) * speed;
 
-                case INPUT_MOUSE_UP:
-                    api.DEBUGPrint("Mouse %i button up\n", event.mouse.button);
-                    break;
-
-                case INPUT_MOUSE_MOVE:
-                    api.DEBUGPrint("Mouse moved: %i %i\n", event.mouse.x, event.mouse.y);
-                    break;
-
-                case INPUT_MOUSE_WHEEL:
-                    break;
-
-                case INPUT_KEY_DOWN:
-                    api.DEBUGPrint("Key %i down\n", event.keyboard.key);
-
-                    // move rectangle by keyboard arrow keys
-                    switch (event.keyboard.key) {
-                        case KEY_UP: up = true; break;
-                        case KEY_DOWN: down = true; break;
-                        case KEY_LEFT: left = true; break;
-                        case KEY_RIGHT: right = true; break;
-                    }
-
-                    break;
-
-                case INPUT_KEY_UP:
-                    api.DEBUGPrint("Key %i up\n", event.keyboard.key);
-                    break;
-
-                case INPUT_CHAR:
-                    break;
-
-                case INPUT_BUTTON_DOWN:
-                    api.DEBUGPrint(
-                        "Joystick %i button %i down\n",
-                        event.joystick.number, event.joystick.button
-                    );
-                    break;
-
-                case INPUT_BUTTON_UP:
-                    api.DEBUGPrint(
-                        "Joystick %i button %i up\n",
-                        event.joystick.number, event.joystick.button
-                    );
-                    break;
-
-                case INPUT_AXIS:
-                    api.DEBUGPrint(
-                        "Joystick %i axis %i moved to %i\n",
-                        event.joystick.number, event.joystick.axis.axis,
-                        event.joystick.axis.value
-                    );
-                    break;
-
-                case INPUT_POV:
-                    api.DEBUGPrint(
-                        "Joystick %i pov %i moved to %i\n",
-                        event.joystick.number, event.joystick.pov.pov,
-                        event.joystick.pov.value
-                    );
-
-                    // move rectangle by joystick POV
-                    switch (event.joystick.pov.value) {
-                        case JOY_DIRECTION_CENTER: up = down = left = right = false; break;
-                        case JOY_DIRECTION_UP: up = true; break;
-                        case JOY_DIRECTION_RIGHT: right = true; break;
-                        case JOY_DIRECTION_DOWN: down = true; break;
-                        case JOY_DIRECTION_LEFT: left = true; break;
-                    }
-
-                    break;
-            }
+        if (input.keyboard.keys[KEY_LEFT] || input.joystick[0].povs[0] == JOY_DIRECTION_LEFT) {
+            p_box_speed_x -= speed;
         }
+        if (input.keyboard.keys[KEY_RIGHT] || input.joystick[0].povs[0] == JOY_DIRECTION_RIGHT) {
+            p_box_speed_x += speed;
+        }
+        if (input.keyboard.keys[KEY_UP] || input.joystick[0].povs[0] == JOY_DIRECTION_UP) {
+            p_box_speed_y -= speed;
+        }
+        if (input.keyboard.keys[KEY_DOWN] || input.joystick[0].povs[0] == JOY_DIRECTION_DOWN) {
+            p_box_speed_y += speed;
+        }
+    }
 
-        // move big rectangle
-        if (left) {
-            p_box_x -= 10;
-        }
-        if (right) {
-            p_box_x += 10;
-        }
-        if (up) {
-            p_box_y -= 10;
-        }
-        if (down) {
-            p_box_y += 10;
-        }
+    void Update(double interval)
+    {
+        // animate big rectangle position
+        p_box_x += p_box_speed_x * float(interval);
+        p_box_y += p_box_speed_y * float(interval);
     }
 
     void RenderGraphics(GraphicsAPI &api, int width, int height)
@@ -188,6 +115,8 @@ private:
 
     float p_box_x;
     float p_box_y;
+    float p_box_speed_x;
+    float p_box_speed_y;
 };
 
 // main platform source - contains platform entry point and platform specific
