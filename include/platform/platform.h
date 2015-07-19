@@ -216,6 +216,15 @@ enum InputJoystickPOV
     JOY_POV_COUNT
 };
 
+enum InputJoystickPOVDirection
+{
+    JOY_DIRECTION_CENTER = -1,
+    JOY_DIRECTION_UP = 0,
+    JOY_DIRECTION_RIGHT = 9000,
+    JOY_DIRECTION_DOWN = 18000,
+    JOY_DIRECTION_LEFT = 27000
+};
+
 enum InputEventType
 {
     INPUT_MOUSE_DOWN,  // mouse button down

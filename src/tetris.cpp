@@ -50,12 +50,30 @@
 class Game
 {
 public:
+    Game() :
+        p_mouse_x(0),
+        p_mouse_y(0),
+        p_box_x(10),
+        p_box_y(10)
+    {}
+
     void ProcessInput(PlatformAPI &api, const Input &input)
     {
         // check for ESC key for quit
         if (input.keyboard.keys[KEY_ESCAPE]) {
             api.Quit();
         }
+
+        // copy mouse coords to internal fields so
+        // rectangle could follow mouse
+        p_mouse_x = float(input.mouse.x);
+        p_mouse_y = float(input.mouse.y);
+
+        // where to move big rectangle?
+        bool left = false;
+        bool up = false;
+        bool right = false;
+        bool down = false;
 
         // debug output all events
         for (size_t e = 0; e < input.event_count; ++e) {
@@ -78,6 +96,15 @@ public:
 
                 case INPUT_KEY_DOWN:
                     api.DEBUGPrint("Key %i down\n", event.keyboard.key);
+
+                    // move rectangle by keyboard arrow keys
+                    switch (event.keyboard.key) {
+                        case KEY_UP: up = true; break;
+                        case KEY_DOWN: down = true; break;
+                        case KEY_LEFT: left = true; break;
+                        case KEY_RIGHT: right = true; break;
+                    }
+
                     break;
 
                 case INPUT_KEY_UP:
@@ -115,16 +142,52 @@ public:
                         event.joystick.number, event.joystick.pov.pov,
                         event.joystick.pov.value
                     );
+
+                    // move rectangle by joystick POV
+                    switch (event.joystick.pov.value) {
+                        case JOY_DIRECTION_CENTER: up = down = left = right = false; break;
+                        case JOY_DIRECTION_UP: up = true; break;
+                        case JOY_DIRECTION_RIGHT: right = true; break;
+                        case JOY_DIRECTION_DOWN: down = true; break;
+                        case JOY_DIRECTION_LEFT: left = true; break;
+                    }
+
                     break;
             }
+        }
+
+        // move big rectangle
+        if (left) {
+            p_box_x -= 10;
+        }
+        if (right) {
+            p_box_x += 10;
+        }
+        if (up) {
+            p_box_y -= 10;
+        }
+        if (down) {
+            p_box_y += 10;
         }
     }
 
     void RenderGraphics(GraphicsAPI &api, int width, int height)
     {
         api.Clear(Color(20, 40, 205));
-        api.Rectangle(10, 10, 100, 100, Color(255, 50, 20));
+
+        // big rectangle, reacts to some user input
+        api.Rectangle(p_box_x, p_box_y, 100, 100, Color(255, 50, 20));
+
+        // tiny mouse rectangle, just to show mouse following
+        api.Rectangle(p_mouse_x - 5, p_mouse_y - 5, 10, 10, Color(255, 255, 255));
     }
+
+private:
+    float p_mouse_x;
+    float p_mouse_y;
+
+    float p_box_x;
+    float p_box_y;
 };
 
 // main platform source - contains platform entry point and platform specific
