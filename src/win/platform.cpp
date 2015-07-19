@@ -37,8 +37,89 @@ static void DEBUGPrint(const char *format, ...)
 }
 
 
+// common engine functions and implementation
+#include "engine.cpp"
+
+
+// platform API implementation
+class WindowsPlatform : public PlatformAPI, public OpenGLAPI
+{
+public:
+    void Quit() override
+    {
+        PostQuitMessage(0);
+    }
+
+    void DEBUGPrint(const char *format, ...) override
+    {
+#if defined(_DEBUG) || defined(DEBUG)
+        va_list va;
+        va_start(va, format);
+        DEBUGPrintVA(format, va);
+        va_end(va);
+#endif
+    }
+
+    void UpdateRenderTargetSize(int width, int height)
+    {
+        p_rt_width = width;
+        p_rt_height = height;
+    }
+
+protected:
+    void GetRenderTargetSize(int &width, int &height) override
+    {
+        width = p_rt_width;
+        height = p_rt_height;
+    }
+
+private:
+    int p_rt_width;
+    int p_rt_height;
+};
+
+
+// function for complete game frame render
+// used in main loop and WndProc WM_PAINT message to update window contents
+// while doing system ops such as moving or resizing which block main loop
+static void RenderGameFrame(WindowsPlatform &api, HWND mainwindow, HDC gldc, Game &game)
+{
+    // set full window viewport for testing
+    RECT rc;
+    GetClientRect(mainwindow, &rc);
+    api.UpdateRenderTargetSize(rc.right, rc.bottom);
+    glViewport(0, 0, rc.right, rc.bottom);
+
+    if (rc.right && rc.bottom) {
+        // set default ortho projection matrix for 2D rendering
+        GLfloat projection[16] = {
+            2 / float(rc.right), 0, 0, 0,
+            0, -2 / float(rc.bottom), 0, 0,
+            0, 0, 1, 0,
+            -1, 1, 0, 1
+        };
+        glMatrixMode(GL_PROJECTION);
+        glLoadMatrixf(projection);
+
+        // ask game to render
+        game.RenderGraphics(api, rc.right, rc.bottom);
+
+        // display render result
+        SwapBuffers(gldc);
+    }
+}
+
+
 // window class name
 static const char *MAIN_WINDOW_CLASS = "TETRISFROMSCRATCH";
+
+// data passed to window, used to access some objects inside WndProc
+struct WindowData
+{
+    HDC             *gldc;
+    WindowsPlatform *api;
+    Game            *game;
+};
 
 // window callback function, used to react for system messages to window
 static LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam)
@@ -53,11 +134,22 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM l
             return 0;
 
         case WM_PAINT: {
-            PAINTSTRUCT ps;
-            BeginPaint(hwnd, &ps);
-            SwapBuffers(ps.hdc);
-            EndPaint(hwnd, &ps);
-            return 0;
+            WindowData *data = reinterpret_cast<WindowData*>(
+                GetWindowLongPtrA(hwnd, GWLP_USERDATA)
+            );
+
+            if (data == nullptr || data->api == nullptr || data->game == nullptr) {
+                // break to default processing
+                break;
+            } else {
+                PAINTSTRUCT ps;
+                BeginPaint(hwnd, &ps);
+                EndPaint(hwnd, &ps);
+
+                RenderGameFrame(*data->api, hwnd, *data->gldc, *data->game);
+
+                return 0;
+            }
         }
 
         case WM_SYSKEYDOWN:
@@ -70,10 +162,6 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM l
     // process all other messages with system default handler
     return DefWindowProcA(hwnd, message, wparam, lparam);
 }
-
-
-// common engine functions
-#include "engine.cpp"
 
 
 // Direct Input related stuff
@@ -186,27 +274,6 @@ static BOOL CALLBACK DIEnumDevicesCallback(LPCDIDEVICEINSTANCEA lpddi, LPVOID pv
 }
 
 
-// platform API implementation
-class WindowsPlatform : public PlatformAPI
-{
-public:
-    void Quit() override
-    {
-        PostQuitMessage(0);
-    }
-
-    void DEBUGPrint(const char *format, ...) override
-    {
-#if defined(_DEBUG) || defined(DEBUG)
-        va_list va;
-        va_start(va, format);
-        DEBUGPrintVA(format, va);
-        va_end(va);
-#endif
-    }
-};
-
-
 // main entry point function, program execution starts here
 int APIENTRY WinMain(
     HINSTANCE hInstance, HINSTANCE hPrevInstance,
@@ -221,6 +288,8 @@ int APIENTRY WinMain(
     InputDeviceList devlist = {};
     HDC gldc = 0;
     HGLRC glrc = 0;
+
+    WindowData data = { &gldc };
 
     // this is "loop trick"
     // if some initialization step failed - just break to skip other parts
@@ -250,6 +319,9 @@ int APIENTRY WinMain(
             initerror = true;
             break;
         }
+
+        // set window data
+        SetWindowLongPtrA(mainwindow, GWLP_USERDATA, LONG(&data));
 
         // initialize input (DirectX Input)
         DirectInput8Create(hInstance, DIRECTINPUT_VERSION, IID_IDirectInput8A, reinterpret_cast<LPVOID*>(&input), nullptr);
@@ -343,6 +415,10 @@ int APIENTRY WinMain(
 
         WindowsPlatform api;
         Game game;
+
+        // update window data structure
+        data.api = &api;
+        data.game = &game;
 
         bool running = mainwindow != 0;
         while (running) {
@@ -467,14 +543,8 @@ int APIENTRY WinMain(
             // pass input to game
             game.ProcessInput(api, input);
 
-            // set full window viewport for testing
-            RECT rc;
-            GetClientRect(mainwindow, &rc);
-            glViewport(0, 0, rc.right, rc.bottom);
-            glClear(GL_COLOR_BUFFER_BIT);
-
-            // display render result
-            SwapBuffers(gldc);
+            // render game graphics
+            RenderGameFrame(api, mainwindow, gldc, game);
 
             // sleep 10ms
             Sleep(10);

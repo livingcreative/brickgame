@@ -42,6 +42,7 @@
                                                    +-------------------------------------+
 */
 
+#include "engine/engine.h"
 #include "platform/platform.h"
 
 
@@ -117,6 +118,12 @@ public:
                     break;
             }
         }
+    }
+
+    void RenderGraphics(GraphicsAPI &api, int width, int height)
+    {
+        api.Clear(Color(20, 40, 205));
+        api.Rectangle(10, 10, 100, 100, Color(255, 50, 20));
     }
 };
 

@@ -9,6 +9,7 @@
 
 #pragma once
 
+
 #include <cstdint>
 
 
@@ -310,10 +311,41 @@ struct Input
 };
 
 
+// graphics declarations
+
+struct Color
+{
+    uint8_t r;
+    uint8_t g;
+    uint8_t b;
+    uint8_t a;
+
+    Color() :
+        r(0), g(0), b(0), a(0)
+    {}
+
+    Color(uint8_t _r, uint8_t _g, uint8_t _b, uint8_t _a = 255) :
+        r(_r), g(_g), b(_b), a(_a)
+    {}
+};
+
+
 class PlatformAPI
 {
 public:
     virtual void Quit() = 0;
 
     virtual void DEBUGPrint(const char *format, ...) = 0;
+};
+
+
+class GraphicsAPI
+{
+public:
+    virtual void Clear(const Color &color) = 0;
+    virtual void Viewport(int left, int top, int width, int height) = 0;
+    virtual void Rectangle(float left, float top, float width, float height, const Color &color) = 0;
+
+protected:
+    virtual void GetRenderTargetSize(int &width, int &height) = 0;
 };
