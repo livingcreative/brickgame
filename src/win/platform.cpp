@@ -244,7 +244,7 @@ static void KeyboardEvent(Input &input, InputKey key, bool down)
 }
 
 // compare joystick/gamepad axis state and generate input event
-static void CheckJoyAxis(Input &input, size_t joynum, size_t axisnumber, int axisvalue)
+static void CheckJoyAxis(Input &input, uint32_t joynum, uint32_t axisnumber, int axisvalue)
 {
     if (input.joystick[joynum].axes[axisnumber] != axisvalue) {
         input.joystick[joynum].axes[axisnumber] = axisvalue;
@@ -323,7 +323,7 @@ int APIENTRY WinMain(
         }
 
         // set window data
-        SetWindowLongPtrA(mainwindow, GWLP_USERDATA, LONG(&data));
+        SetWindowLongPtrA(mainwindow, GWLP_USERDATA, LONG_PTR(&data));
 
         // initialize timer frequency
         QueryPerformanceFrequency(&frequency);
@@ -495,7 +495,7 @@ int APIENTRY WinMain(
             }
 
             // process input from joystick/gamepad
-            for (size_t dev = 0; dev < devlist.count; ++dev) {
+            for (uint32_t dev = 0; dev < devlist.count; ++dev) {
                 IDirectInputDevice8A *device = devlist.devices[dev].device;
                 if (device) {
                     // get current device state
@@ -507,7 +507,7 @@ int APIENTRY WinMain(
                     }
 
                     if (statereceived) {
-                        for (size_t btn = 0; btn < JOY_BUTTON_COUNT; ++btn) {
+                        for (uint32_t btn = 0; btn < JOY_BUTTON_COUNT; ++btn) {
                             uint32_t button_bit = 1 << btn;
                             bool newstate = state.rgbButtons[btn] >= 128;
                             bool oldstate = (input.joystick[dev].buttons & button_bit) != 0;
@@ -527,7 +527,7 @@ int APIENTRY WinMain(
                             }
                         }
 
-                        for (size_t pov = 0; pov < JOY_POV_COUNT; ++pov) {
+                        for (uint32_t pov = 0; pov < JOY_POV_COUNT; ++pov) {
                             int povvalue = state.rgdwPOV[pov];
                             if (input.joystick[dev].povs[pov] != povvalue) {
                                 input.joystick[dev].povs[pov] = povvalue;
