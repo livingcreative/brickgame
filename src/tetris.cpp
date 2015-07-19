@@ -18,7 +18,7 @@
         item #2 is actually game code
         items #1, #3 are common for any game in general
 
-        game runs in current platform invioronment
+        game runs in current platform environment
         so, platform specific code "wraps" game code
         following diagram shows interaction between game code and platform code
 
