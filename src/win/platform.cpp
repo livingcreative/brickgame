@@ -557,8 +557,8 @@ int APIENTRY WinMain(
 
             // update game state (and animations)
             game.Update(
-                double(currenttime.QuadPart - lasttime.QuadPart) /
-                double(frequency.QuadPart)
+                float(double(currenttime.QuadPart - lasttime.QuadPart) /
+                      double(frequency.QuadPart))
             );
             lasttime = currenttime;
 
