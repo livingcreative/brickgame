@@ -2,6 +2,8 @@
     TETRIS FROM SCRATCH
     (C) livingcreative, 2015
 
+    https://github.com/livingcreative/brickgame
+
     feel free to use and modify
 */
 
@@ -18,7 +20,7 @@
         item #2 is actually game code
         items #1, #3 are common for any game in general
 
-        game runs in current platform invioronment
+        game runs in current platform environment
         so, platform specific code "wraps" game code
         following diagram shows interaction between game code and platform code
 
@@ -33,12 +35,12 @@
                            |                                          ^
                            V                                          |
         +-------------------------------------+    +-------------------------------------+
-        |   main loop (platform specific)     |    |   game code (platform independed)   |
+        |   main loop (platform specific)     |    |   game code (platform independent)  |
         +-------------------------------------+    +-------------------------------------+
         | collects system messages and input  |--->| does all game processing            |
         | passes processed input data to game |    | calls back some platform API code   |
         +-------------------------------------+    | to create output, read files and    |
-                                                   | do ther platform related stuff      |
+                                                   | do other platform related stuff     |
                                                    +-------------------------------------+
 */
 
