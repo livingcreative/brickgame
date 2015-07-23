@@ -317,7 +317,7 @@ public:
                     block_size - 2, block_size - 2, Color(0, 0, 0, 20)
                 );
 
-                // filed cell brick
+                // field cell brick
                 api.Rectangle(
                     field_x + x * block_size, field_y + y * block_size,
                     block_size - 2, block_size - 2, p_field[cell++]
