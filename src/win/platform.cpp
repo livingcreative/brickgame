@@ -39,7 +39,7 @@ public:
         RegisterClassA(&wcl);
 
         // create & show main window
-        HWND mainwindow = CreateWindowExA(
+        mainwindow = CreateWindowExA(
             0, MAIN_WINDOW_CLASS, "Tetris from scratch", WS_OVERLAPPEDWINDOW,
             0, 0, CW_USEDEFAULT, CW_USEDEFAULT, 0, 0, hInstance, nullptr
         );
