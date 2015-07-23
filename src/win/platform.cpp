@@ -77,14 +77,25 @@ public:
             0, 0, CW_USEDEFAULT, CW_USEDEFAULT, 0, 0, hInstance, nullptr
         );
 
+        // set to window user data pointer to this Win32Application object
+        SetWindowLongPtrA(mainwindow, GWLP_USERDATA, LONG_PTR(this));
+
         // initialize input (DirectX Input)
         input = nullptr;
         devlist.count = 0;
         memset(joystate, 0, sizeof(joystate));
-        DirectInput8Create(hInstance, DIRECTINPUT_VERSION, IID_IDirectInput8A, reinterpret_cast<LPVOID*>(&input), nullptr);
+        DirectInput8Create(
+            hInstance, DIRECTINPUT_VERSION, IID_IDirectInput8A,
+            reinterpret_cast<LPVOID*>(&input), nullptr
+        );
+        // this is totally fine to continue without DirectInput, so
+        // failure of DirectInput8Create is ignored
         if (input) {
             // enum joystick/gamepad devices
-            input->EnumDevices(DI8DEVCLASS_GAMECTRL, DIEnumDevicesCallback, &devlist, DIEDFL_ALLDEVICES);
+            input->EnumDevices(
+                DI8DEVCLASS_GAMECTRL, DIEnumDevicesCallback,
+                &devlist, DIEDFL_ALLDEVICES
+            );
 
             // initialize all devices found
             for (size_t dev = 0; dev < devlist.count; ++dev) {
@@ -93,7 +104,10 @@ public:
                 devlist.devices[dev].device = device;
 
                 if (device) {
-                    device->SetCooperativeLevel(mainwindow, DISCL_NONEXCLUSIVE | DISCL_FOREGROUND);
+                    device->SetCooperativeLevel(
+                        mainwindow,
+                        DISCL_NONEXCLUSIVE | DISCL_FOREGROUND
+                    );
                     device->SetDataFormat(&c_dfDIJoystick);
                 }
             }
@@ -111,13 +125,16 @@ public:
             for (size_t dev = 0; dev < devlist.count; ++dev) {
                 IDirectInputDevice8A *device = devlist.devices[dev].device;
                 if (device) {
-                    device->Unacquire();
                     device->Release();
                 }
             }
 
             input->Release();
         }
+
+        // set to window user data pointer to 0 so no instance data could be touched
+        // inside WndProc, anyway all objects have been destroyed
+        SetWindowLongPtrA(mainwindow, GWLP_USERDATA, 0);
 
         // destroy main window
         // if "mainwindow" is 0 (there's some failure and window wasn't created)
@@ -183,43 +200,40 @@ public:
                 if (device) {
                     // get current device state
                     DIJOYSTATE state = {};
-                    if (device->GetDeviceState(sizeof(state), &state) != S_OK) {
-                        device->Acquire();
-                        device->GetDeviceState(sizeof(state), &state);
-                    }
+                    if (device->GetDeviceState(sizeof(state), &state) == S_OK) {
+                        for (size_t btn = 0; btn < MAX_JOYSTICK_BUTTONS; ++btn) {
+                            uint32_t button_bit = 1 << btn;
+                            bool newstate = state.rgbButtons[btn] >= 128;
+                            bool oldstate = (joystate[dev].buttons & button_bit) != 0;
 
-                    for (size_t btn = 0; btn < MAX_JOYSTICK_BUTTONS; ++btn) {
-                        uint32_t button_bit = 1 << btn;
-                        bool newstate = state.rgbButtons[btn] >= 128;
-                        bool oldstate = (joystate[dev].buttons & button_bit) != 0;
+                            if (oldstate != newstate) {
+                                DEBUGPrint("Joystick #%i button #%i %s\n", dev, btn, newstate ? "down" : "up");
+                            }
 
-                        if (oldstate != newstate) {
-                            DEBUGPrint("Joystick #%i button #%i %s\n", dev, btn, newstate ? "down" : "up");
+                            if (newstate) {
+                                joystate[dev].buttons |= button_bit;
+                            } else {
+                                joystate[dev].buttons &= ~button_bit;
+                            }
                         }
 
-                        if (newstate) {
-                            joystate[dev].buttons |= button_bit;
-                        } else {
-                            joystate[dev].buttons &= ~button_bit;
+                        for (size_t pov = 0; pov < MAX_JOYSTICK_POVS; ++pov) {
+                            int povvalue = state.rgdwPOV[pov];
+                            if (joystate[dev].pov[pov] != povvalue) {
+                                joystate[dev].pov[pov] = povvalue;
+                                DEBUGPrint("Joystick #%i pov #%i moved to %i\n", dev, pov, povvalue);
+                            }
                         }
-                    }
 
-                    for (size_t pov = 0; pov < MAX_JOYSTICK_POVS; ++pov) {
-                        int povvalue = state.rgdwPOV[pov];
-                        if (joystate[dev].pov[pov] != povvalue) {
-                            joystate[dev].pov[pov] = povvalue;
-                            DEBUGPrint("Joystick #%i pov #%i moved to %i\n", dev, pov, povvalue);
-                        }
+                        CheckJoyAxis(joystate[dev], dev, 0, state.lX);
+                        CheckJoyAxis(joystate[dev], dev, 1, state.lY);
+                        CheckJoyAxis(joystate[dev], dev, 2, state.lZ);
+                        CheckJoyAxis(joystate[dev], dev, 3, state.lRx);
+                        CheckJoyAxis(joystate[dev], dev, 4, state.lRy);
+                        CheckJoyAxis(joystate[dev], dev, 5, state.lRz);
+                        CheckJoyAxis(joystate[dev], dev, 6, state.rglSlider[0]);
+                        CheckJoyAxis(joystate[dev], dev, 7, state.rglSlider[1]);
                     }
-
-                    CheckJoyAxis(joystate[dev], dev, 0, state.lX);
-                    CheckJoyAxis(joystate[dev], dev, 1, state.lY);
-                    CheckJoyAxis(joystate[dev], dev, 2, state.lZ);
-                    CheckJoyAxis(joystate[dev], dev, 3, state.lRx);
-                    CheckJoyAxis(joystate[dev], dev, 4, state.lRy);
-                    CheckJoyAxis(joystate[dev], dev, 5, state.lRz);
-                    CheckJoyAxis(joystate[dev], dev, 6, state.rglSlider[0]);
-                    CheckJoyAxis(joystate[dev], dev, 7, state.rglSlider[1]);
                 }
             }
 
@@ -235,6 +249,10 @@ private:
     // private members of the class
     static LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam)
     {
+        Win32Application *app = reinterpret_cast<Win32Application*>(
+            GetWindowLongPtrA(hwnd, GWLP_USERDATA)
+        );
+
         // process messages game needs
         switch (message) {
             case WM_CLOSE:
@@ -242,6 +260,22 @@ private:
                 // the PostQuitMessage() function posts WM_QUIT message in application
                 // message queue
                 PostQuitMessage(0);
+                return 0;
+
+            case WM_KILLFOCUS:
+            case WM_SETFOCUS:
+                // if window still has pointer to Win32Application instance - process
+                // focus changes. DirectInput requires that devices should be "Acuired"
+                // before getting their state
+                if (app) {
+                    for (size_t dev = 0; dev < app->devlist.count; ++dev) {
+                        IDirectInputDevice8A *device = app->devlist.devices[dev].device;
+                        if (device) {
+                            message == WM_SETFOCUS ?
+                                device->Acquire() : device->Unacquire();
+                        }
+                    }
+                }
                 return 0;
         }
 
