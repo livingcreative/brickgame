@@ -22,9 +22,9 @@ static const char *MAIN_WINDOW_CLASS = "TETRISFROMSCRATCH";
 
 // Direct Input related stuff
 static const size_t MAX_DEVICE_COUNT = 4;
-static const size_t MAX_JOYSTICK_BUTTONS = 32;
-static const size_t MAX_JOYSTICK_AXES = 8;
-static const size_t MAX_JOYSTICK_POVS = 4;
+static const size_t MAX_CONTROLLER_BUTTONS = 32;
+static const size_t MAX_CONTROLLER_AXES = 8;
+static const size_t MAX_CONTROLLER_POVS = 4;
 
 // input device data
 struct InputDevice
@@ -41,11 +41,11 @@ struct InputDeviceList
 };
 
 // joystick/gamepad state
-struct JoystickState
+struct ControllerState
 {
     uint32_t buttons;
-    int      axes[MAX_JOYSTICK_AXES];
-    int      pov[MAX_JOYSTICK_POVS];
+    int      axes[MAX_CONTROLLER_AXES];
+    int      pov[MAX_CONTROLLER_POVS];
 };
 
 
@@ -83,7 +83,7 @@ public:
         // initialize input (DirectX Input)
         input = nullptr;
         devlist.count = 0;
-        memset(joystate, 0, sizeof(joystate));
+        memset(devstate, 0, sizeof(devstate));
         DirectInput8Create(
             hInstance, DIRECTINPUT_VERSION, IID_IDirectInput8A,
             reinterpret_cast<LPVOID*>(&input), nullptr
@@ -129,12 +129,12 @@ public:
                 }
             }
 
+            // set devices count to 0 to prevent access to destroyed device objects
+            // inside WndProc
+            devlist.count = 0;
+
             input->Release();
         }
-
-        // set to window user data pointer to 0 so no instance data could be touched
-        // inside WndProc, anyway all objects have been destroyed
-        SetWindowLongPtrA(mainwindow, GWLP_USERDATA, 0);
 
         // destroy main window
         // if "mainwindow" is 0 (there's some failure and window wasn't created)
@@ -201,38 +201,38 @@ public:
                     // get current device state
                     DIJOYSTATE state = {};
                     if (device->GetDeviceState(sizeof(state), &state) == S_OK) {
-                        for (size_t btn = 0; btn < MAX_JOYSTICK_BUTTONS; ++btn) {
+                        for (size_t btn = 0; btn < MAX_CONTROLLER_BUTTONS; ++btn) {
                             uint32_t button_bit = 1 << btn;
                             bool newstate = state.rgbButtons[btn] >= 128;
-                            bool oldstate = (joystate[dev].buttons & button_bit) != 0;
+                            bool oldstate = (devstate[dev].buttons & button_bit) != 0;
 
                             if (oldstate != newstate) {
-                                DEBUGPrint("Joystick #%i button #%i %s\n", dev, btn, newstate ? "down" : "up");
+                                DEBUGPrint("Controller #%i button #%i %s\n", dev, btn, newstate ? "down" : "up");
                             }
 
                             if (newstate) {
-                                joystate[dev].buttons |= button_bit;
+                                devstate[dev].buttons |= button_bit;
                             } else {
-                                joystate[dev].buttons &= ~button_bit;
+                                devstate[dev].buttons &= ~button_bit;
                             }
                         }
 
-                        for (size_t pov = 0; pov < MAX_JOYSTICK_POVS; ++pov) {
+                        for (size_t pov = 0; pov < MAX_CONTROLLER_POVS; ++pov) {
                             int povvalue = state.rgdwPOV[pov];
-                            if (joystate[dev].pov[pov] != povvalue) {
-                                joystate[dev].pov[pov] = povvalue;
-                                DEBUGPrint("Joystick #%i pov #%i moved to %i\n", dev, pov, povvalue);
+                            if (devstate[dev].pov[pov] != povvalue) {
+                                devstate[dev].pov[pov] = povvalue;
+                                DEBUGPrint("Controller #%i pov #%i moved to %i\n", dev, pov, povvalue);
                             }
                         }
 
-                        CheckJoyAxis(joystate[dev], dev, 0, state.lX);
-                        CheckJoyAxis(joystate[dev], dev, 1, state.lY);
-                        CheckJoyAxis(joystate[dev], dev, 2, state.lZ);
-                        CheckJoyAxis(joystate[dev], dev, 3, state.lRx);
-                        CheckJoyAxis(joystate[dev], dev, 4, state.lRy);
-                        CheckJoyAxis(joystate[dev], dev, 5, state.lRz);
-                        CheckJoyAxis(joystate[dev], dev, 6, state.rglSlider[0]);
-                        CheckJoyAxis(joystate[dev], dev, 7, state.rglSlider[1]);
+                        CheckControllerAxis(devstate[dev], dev, 0, state.lX);
+                        CheckControllerAxis(devstate[dev], dev, 1, state.lY);
+                        CheckControllerAxis(devstate[dev], dev, 2, state.lZ);
+                        CheckControllerAxis(devstate[dev], dev, 3, state.lRx);
+                        CheckControllerAxis(devstate[dev], dev, 4, state.lRy);
+                        CheckControllerAxis(devstate[dev], dev, 5, state.lRz);
+                        CheckControllerAxis(devstate[dev], dev, 6, state.rglSlider[0]);
+                        CheckControllerAxis(devstate[dev], dev, 7, state.rglSlider[1]);
                     }
                 }
             }
@@ -298,11 +298,11 @@ private:
     }
 
     // compare joystick/gamepad axis state and generate input event
-    static void CheckJoyAxis(JoystickState &state, size_t joynum, size_t axisnumber, int axisvalue)
+    static void CheckControllerAxis(ControllerState &state, size_t joynum, size_t axisnumber, int axisvalue)
     {
         if (state.axes[axisnumber] != axisvalue) {
             state.axes[axisnumber] = axisvalue;
-            DEBUGPrint("Joystick #%i axis #%i moved to %i\n", joynum, axisnumber, axisvalue);
+            DEBUGPrint("Controller #%i axis #%i moved to %i\n", joynum, axisnumber, axisvalue);
         }
     }
 
@@ -312,7 +312,7 @@ private:
     {
         InputDeviceList *devlist = reinterpret_cast<InputDeviceList*>(pvRef);
         if (devlist->count < MAX_DEVICE_COUNT) {
-            DEBUGPrint("Joystick device #%i, \"%s\"\n", devlist->count, lpddi->tszProductName);
+            DEBUGPrint("Controller device #%i, \"%s\"\n", devlist->count, lpddi->tszProductName);
 
             devlist->devices[devlist->count].giud = lpddi->guidInstance;
             devlist->devices[devlist->count].device = nullptr;
@@ -323,11 +323,11 @@ private:
     }
 
 private:
-    HWND            mainwindow;
+    HWND             mainwindow;
 
-    IDirectInput8A *input;
-    InputDeviceList devlist;
-    JoystickState   joystate[MAX_DEVICE_COUNT];
+    IDirectInput8A  *input;
+    InputDeviceList  devlist;
+    ControllerState  devstate[MAX_DEVICE_COUNT];
 };
 
 
