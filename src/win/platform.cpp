@@ -14,6 +14,7 @@
 #include <Windows.h>
 #define DIRECTINPUT_VERSION 0x0800
 #include <dinput.h>
+#include "platform/platform.h"
 
 
 // window class name
@@ -21,10 +22,6 @@ static const char *MAIN_WINDOW_CLASS = "TETRISFROMSCRATCH";
 
 
 // Direct Input related stuff
-static const size_t MAX_DEVICE_COUNT = 4;
-static const size_t MAX_CONTROLLER_BUTTONS = 32;
-static const size_t MAX_CONTROLLER_AXES = 8;
-static const size_t MAX_CONTROLLER_POVS = 4;
 
 // input device data
 struct InputDevice
@@ -37,16 +34,71 @@ struct InputDevice
 struct InputDeviceList
 {
     size_t      count;
-    InputDevice devices[MAX_DEVICE_COUNT];
+    InputDevice devices[JOYSTICK_DEVICE_COUNT];
 };
 
-// joystick/gamepad state
-struct ControllerState
+// generate mouse button events and set corresponding state
+static void MouseButtonEvent(Input &input, InputMouseButton button, bool down)
 {
-    uint32_t buttons;
-    int      axes[MAX_CONTROLLER_AXES];
-    int      pov[MAX_CONTROLLER_POVS];
-};
+    if (InputEvent *event = new_event(input)) {
+        event->type = down ? INPUT_MOUSE_DOWN : INPUT_MOUSE_UP;
+        event->mouse.button = button;
+        event->mouse.wheel = 0;
+        event->mouse.x = input.mouse.x;
+        event->mouse.y = input.mouse.y;
+    }
+
+    if (down) {
+        input.mouse.buttons |= (1 << button);
+    } else {
+        input.mouse.buttons &= ~(1 << button);
+    }
+}
+
+// generate keyboard event and set state
+static void KeyboardEvent(Input &input, InputKey key, bool down)
+{
+    if (InputEvent *event = new_event(input)) {
+        event->type = down ? INPUT_KEY_DOWN : INPUT_KEY_UP;
+        event->keyboard.key = key;
+    }
+
+    if (down) {
+        input.keyboard.keys[key] = 1;
+    } else {
+        input.keyboard.keys[key] = 0;
+    }
+
+    switch (key) {
+        case KEY_LSHIFT:
+        case KEY_RSHIFT:
+            input.keyboard.keys[KEY_LSHIFT] || input.keyboard.keys[KEY_RSHIFT] ?
+                input.keyboard.shifts |= KEY_SHIFT : input.keyboard.shifts &= ~KEY_SHIFT;
+            break;
+
+        case KEY_LCONTROL:
+        case KEY_RCONTROL:
+            input.keyboard.keys[KEY_LCONTROL] || input.keyboard.keys[KEY_RCONTROL] ?
+                input.keyboard.shifts |= KEY_CONTROL : input.keyboard.shifts &= ~KEY_CONTROL;
+            break;
+
+        case KEY_LALT:
+        case KEY_RALT:
+            input.keyboard.keys[KEY_LALT] || input.keyboard.keys[KEY_RALT] ?
+                input.keyboard.shifts |= KEY_ALT : input.keyboard.shifts &= ~KEY_ALT;
+            break;
+
+        case KEY_NUMLOCK:
+            GetKeyState(VK_NUMLOCK) & 1 ?
+                input.keyboard.shifts |= KEY_NUM : input.keyboard.shifts &= ~KEY_NUM;
+            break;
+
+        case KEY_CAPITAL:
+            GetKeyState(VK_CAPITAL) & 1 ?
+                input.keyboard.shifts |= KEY_CAPS : input.keyboard.shifts &= ~KEY_CAPS;
+            break;
+    }
+}
 
 
 // do it in OOP style, but this is not necessary
@@ -54,33 +106,33 @@ class Win32Application
 {
 public:
     Win32Application(HINSTANCE hInstance)
-    {
+{
         // there's a chance that RegisterClassA() and/or CreateWindowExA()
         // call could fail, so their result should be checked
         // however for the 2nd step this is not needed
 
-        // register main window class
-        // window class describes window look and behaviour
-        WNDCLASSA wcl = {};
-        wcl.style         = CS_HREDRAW | CS_VREDRAW;
-        wcl.lpfnWndProc   = WndProc;
-        wcl.hInstance     = hInstance;
-        wcl.hIcon         = LoadIconA(0, IDI_APPLICATION);
-        wcl.hCursor       = LoadCursorA(0, IDC_ARROW);
-        wcl.hbrBackground = HBRUSH(COLOR_WINDOW + 1);
-        wcl.lpszClassName = MAIN_WINDOW_CLASS;
-        RegisterClassA(&wcl);
+    // register main window class
+    // window class describes window look and behaviour
+    WNDCLASSA wcl = {};
+    wcl.style         = CS_HREDRAW | CS_VREDRAW;
+    wcl.lpfnWndProc   = WndProc;
+    wcl.hInstance     = hInstance;
+    wcl.hIcon         = LoadIconA(0, IDI_APPLICATION);
+    wcl.hCursor       = LoadCursorA(0, IDC_ARROW);
+    wcl.hbrBackground = HBRUSH(COLOR_WINDOW + 1);
+    wcl.lpszClassName = MAIN_WINDOW_CLASS;
+    RegisterClassA(&wcl);
 
-        // create & show main window
+    // create & show main window
         mainwindow = CreateWindowExA(
-            0, MAIN_WINDOW_CLASS, "Tetris from scratch", WS_OVERLAPPEDWINDOW,
-            0, 0, CW_USEDEFAULT, CW_USEDEFAULT, 0, 0, hInstance, nullptr
-        );
+        0, MAIN_WINDOW_CLASS, "Tetris from scratch", WS_OVERLAPPEDWINDOW,
+        0, 0, CW_USEDEFAULT, CW_USEDEFAULT, 0, 0, hInstance, nullptr
+    );
 
         // set to window user data pointer to this Win32Application object
         SetWindowLongPtrA(mainwindow, GWLP_USERDATA, LONG_PTR(this));
 
-        // initialize input (DirectX Input)
+    // initialize input (DirectX Input)
         input = nullptr;
         devlist.count = 0;
         memset(devstate, 0, sizeof(devstate));
@@ -90,32 +142,32 @@ public:
         );
         // this is totally fine to continue without DirectInput, so
         // failure of DirectInput8Create is ignored
-        if (input) {
-            // enum joystick/gamepad devices
+    if (input) {
+        // enum joystick/gamepad devices
             input->EnumDevices(
                 DI8DEVCLASS_GAMECTRL, DIEnumDevicesCallback,
                 &devlist, DIEDFL_ALLDEVICES
             );
 
-            // initialize all devices found
-            for (size_t dev = 0; dev < devlist.count; ++dev) {
-                IDirectInputDevice8A *device = nullptr;
-                input->CreateDevice(devlist.devices[dev].giud, &device, nullptr);
-                devlist.devices[dev].device = device;
+        // initialize all devices found
+        for (size_t dev = 0; dev < devlist.count; ++dev) {
+            IDirectInputDevice8A *device = nullptr;
+            input->CreateDevice(devlist.devices[dev].giud, &device, nullptr);
+            devlist.devices[dev].device = device;
 
-                if (device) {
+            if (device) {
                     device->SetCooperativeLevel(
                         mainwindow,
                         DISCL_NONEXCLUSIVE | DISCL_FOREGROUND
                     );
-                    device->SetDataFormat(&c_dfDIJoystick);
-                }
+                device->SetDataFormat(&c_dfDIJoystick);
             }
         }
+    }
 
-        // actually here instead of SW_SHOWNORMAL parameter
-        // nCmdShow should be used, but who cares?
-        ShowWindow(mainwindow, SW_SHOWNORMAL);
+    // actually here instead of SW_SHOWNORMAL parameter
+    // nCmdShow should be used, but who cares?
+    ShowWindow(mainwindow, SW_SHOWNORMAL);
     }
 
     ~Win32Application()
@@ -144,86 +196,122 @@ public:
 
     void Run()
     {
-        // application main loop
-        // pulls out messages from application message queue and sends them to
-        // WndProc
-        // for now, GetMessage() function will return false only when it picks WM_QUIT message
-        MSG msg;
-        bool running = mainwindow != 0;
-        while (running) {
-            // pull out all system messages from queue
-            while (PeekMessageA(&msg, 0, 0, 0, PM_REMOVE)) {
-                if (msg.message == WM_QUIT) {
-                    running = false;
-                }
+    // application main loop
+    // pulls out messages from application message queue and sends them to
+    // WndProc
+    // for now, GetMessage() function will return false only when it picks WM_QUIT message
+        Input input = {};
+        input.keyboard.shifts =
+            (GetKeyState(VK_SHIFT) < 0 ? KEY_SHIFT : 0) |
+            (GetKeyState(VK_CONTROL) < 0 ? KEY_CONTROL : 0) |
+            (GetKeyState(VK_MENU) < 0 ? KEY_ALT : 0) |
+            (GetKeyState(VK_CAPITAL) & 1 ? KEY_CAPS : 0) |
+            (GetKeyState(VK_NUMLOCK) & 1 ? KEY_NUM : 0);
 
-                TranslateMessage(&msg);
-                DispatchMessageA(&msg);
+        WindowsPlatform api;
+        Game game;
 
-                // process input from mouse/keyboard
-                switch (msg.message) {
-                    case WM_MOUSEMOVE: {
-                        POINTS *pt = reinterpret_cast<POINTS*>(&msg.lParam);
-                        DEBUGPrint("Mouse moved: %i %i\n", pt->x, pt->y);
-                        break;
-                    }
+    bool running = mainwindow != 0;
+    while (running) {
+            // reset event count, events passed by frame basis
+            input.event_count = 0;
 
-                    case WM_LBUTTONDOWN:
-                        DEBUGPrint("Mouse left button down\n");
-                        break;
-
-                    case WM_LBUTTONUP:
-                        DEBUGPrint("Mouse left button up\n");
-                        break;
-
-                    case WM_RBUTTONDOWN:
-                        DEBUGPrint("Mouse right button down\n");
-                        break;
-
-                    case WM_RBUTTONUP:
-                        DEBUGPrint("Mouse right button up\n");
-                        break;
-
-                    case WM_KEYDOWN:
-                        DEBUGPrint("Key #%i down\n", msg.wParam);
-                        break;
-
-                    case WM_KEYUP:
-                        DEBUGPrint("Key #%i up\n", msg.wParam);
-                        break;
-                }
+        // pull out all system messages from queue
+            MSG msg;
+        while (PeekMessageA(&msg, 0, 0, 0, PM_REMOVE)) {
+            if (msg.message == WM_QUIT) {
+                running = false;
             }
 
-            // process input from joystick/gamepad
-            for (size_t dev = 0; dev < devlist.count; ++dev) {
-                IDirectInputDevice8A *device = devlist.devices[dev].device;
-                if (device) {
-                    // get current device state
-                    DIJOYSTATE state = {};
+            TranslateMessage(&msg);
+            DispatchMessageA(&msg);
+
+            // process input from mouse/keyboard
+            switch (msg.message) {
+                case WM_MOUSEMOVE: {
+                    POINTS *pt = reinterpret_cast<POINTS*>(&msg.lParam);
+
+                        if (InputEvent *event = new_event(input)) {
+                            event->type = INPUT_MOUSE_MOVE;
+                            event->mouse.button = MOUSE_BUTTON_COUNT;
+                            event->mouse.wheel = 0;
+                            event->mouse.x = pt->x;
+                            event->mouse.y = pt->y;
+                        }
+
+                        input.mouse.x = pt->x;
+                        input.mouse.y = pt->y;
+
+                    break;
+                }
+
+                case WM_LBUTTONDOWN:
+                        MouseButtonEvent(input, MOUSE_BUTTON_LEFT, true);
+                    break;
+
+                case WM_LBUTTONUP:
+                        MouseButtonEvent(input, MOUSE_BUTTON_LEFT, false);
+                    break;
+
+                case WM_RBUTTONDOWN:
+                        MouseButtonEvent(input, MOUSE_BUTTON_RIGHT, true);
+                    break;
+
+                case WM_RBUTTONUP:
+                        MouseButtonEvent(input, MOUSE_BUTTON_RIGHT, false);
+                    break;
+
+                    case WM_SYSKEYDOWN:
+                case WM_KEYDOWN:
+                        KeyboardEvent(input, InputKey(msg.wParam), true);
+                    break;
+
+                    case WM_SYSKEYUP:
+                case WM_KEYUP:
+                        KeyboardEvent(input, InputKey(msg.wParam), false);
+                    break;
+            }
+        }
+
+        // process input from joystick/gamepad
+        for (size_t dev = 0; dev < devlist.count; ++dev) {
+            IDirectInputDevice8A *device = devlist.devices[dev].device;
+            if (device) {
+                // get current device state
+                DIJOYSTATE state = {};
                     if (device->GetDeviceState(sizeof(state), &state) == S_OK) {
                         for (size_t btn = 0; btn < MAX_CONTROLLER_BUTTONS; ++btn) {
-                            uint32_t button_bit = 1 << btn;
-                            bool newstate = state.rgbButtons[btn] >= 128;
+                    uint32_t button_bit = 1 << btn;
+                    bool newstate = state.rgbButtons[btn] >= 128;
                             bool oldstate = (devstate[dev].buttons & button_bit) != 0;
 
-                            if (oldstate != newstate) {
-                                DEBUGPrint("Controller #%i button #%i %s\n", dev, btn, newstate ? "down" : "up");
-                            }
+                    if (oldstate != newstate) {
+                                if (InputEvent *event = new_event(input)) {
+                                    event->type = newstate ? INPUT_BUTTON_DOWN : INPUT_BUTTON_UP;
+                                    event->joystick.number = dev;
+                                    event->joystick.button = InputJoystickButton(btn);
+                                }
+                    }
 
-                            if (newstate) {
+                    if (newstate) {
                                 devstate[dev].buttons |= button_bit;
-                            } else {
+                    } else {
                                 devstate[dev].buttons &= ~button_bit;
-                            }
-                        }
+                    }
+                }
 
                         for (size_t pov = 0; pov < MAX_CONTROLLER_POVS; ++pov) {
-                            int povvalue = state.rgdwPOV[pov];
-                            if (devstate[dev].pov[pov] != povvalue) {
-                                devstate[dev].pov[pov] = povvalue;
-                                DEBUGPrint("Controller #%i pov #%i moved to %i\n", dev, pov, povvalue);
-                            }
-                        }
+                    int povvalue = state.rgdwPOV[pov];
+                            if (input.joystick[dev].povs[pov] != povvalue) {
+                                input.joystick[dev].povs[pov] = povvalue;
+                                if (InputEvent *event = new_event(input)) {
+                                    event->type = INPUT_POV;
+                                    event->joystick.number = dev;
+                                    event->joystick.pov.pov = InputJoystickPOV(pov);
+                                    event->joystick.pov.value = povvalue;
+                                }
+                    }
+                }
 
                         CheckControllerAxis(devstate[dev], dev, 0, state.lX);
                         CheckControllerAxis(devstate[dev], dev, 1, state.lY);
@@ -234,12 +322,15 @@ public:
                         CheckControllerAxis(devstate[dev], dev, 6, state.rglSlider[0]);
                         CheckControllerAxis(devstate[dev], dev, 7, state.rglSlider[1]);
                     }
-                }
             }
-
-            // sleep 10ms
-            Sleep(10);
         }
+
+            // pass input to game
+            game.ProcessInput(api, input);
+
+        // sleep 10ms
+        Sleep(10);
+    }
     }
 
 private:
@@ -270,13 +361,19 @@ private:
                 if (app) {
                     for (size_t dev = 0; dev < app->devlist.count; ++dev) {
                         IDirectInputDevice8A *device = app->devlist.devices[dev].device;
-                        if (device) {
+            if (device) {
                             message == WM_SETFOCUS ?
                                 device->Acquire() : device->Unacquire();
                         }
                     }
                 }
                 return 0;
+
+            case WM_SYSKEYDOWN:
+            if (wparam == VK_F4) {
+                break;
+            }
+            return 0;
         }
 
         // process all other messages with system default handler
@@ -304,7 +401,7 @@ private:
             state.axes[axisnumber] = axisvalue;
             DEBUGPrint("Controller #%i axis #%i moved to %i\n", joynum, axisnumber, axisvalue);
         }
-    }
+            }
 
     // callback function for IDirectInput8A::EnumDevices, records devices to InputDeviceList
     // passed via pvRef
