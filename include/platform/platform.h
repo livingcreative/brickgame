@@ -234,7 +234,6 @@ struct InputMouseState
 struct InputKeyboardState
 {
     uint8_t  keys[KEY_COUNT];
-    uint32_t shifts;
 };
 
 struct InputControllerState

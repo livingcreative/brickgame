@@ -38,8 +38,8 @@ struct InputDeviceList
 };
 
 
-// common engine functions which any platform might need
-#include "engine.cpp"
+// common platform functions which any platform might need
+#include "platformcommon.cpp"
 
 
 // do it in OOP style, but this is not necessary
@@ -138,12 +138,6 @@ public:
     {
         Input input = {};
         input.controller_count = devlist.count;
-        input.keyboard.shifts =
-            (GetKeyState(VK_SHIFT) < 0 ? KEY_SHIFT : 0) |
-            (GetKeyState(VK_CONTROL) < 0 ? KEY_CONTROL : 0) |
-            (GetKeyState(VK_MENU) < 0 ? KEY_ALT : 0) |
-            (GetKeyState(VK_CAPITAL) & 1 ? KEY_CAPS : 0) |
-            (GetKeyState(VK_NUMLOCK) & 1 ? KEY_NUM : 0);
 
         Game game;
 
@@ -186,32 +180,32 @@ public:
                         break;
                     }
 
-                case WM_LBUTTONDOWN:
-                    MouseButtonEvent(input, MOUSE_BUTTON_LEFT, true);
-                    break;
+                    case WM_LBUTTONDOWN:
+                        MouseButtonEvent(input, MOUSE_BUTTON_LEFT, true);
+                        break;
 
-                case WM_LBUTTONUP:
-                    MouseButtonEvent(input, MOUSE_BUTTON_LEFT, false);
-                    break;
+                    case WM_LBUTTONUP:
+                        MouseButtonEvent(input, MOUSE_BUTTON_LEFT, false);
+                        break;
 
-                case WM_RBUTTONDOWN:
-                    MouseButtonEvent(input, MOUSE_BUTTON_RIGHT, true);
-                    break;
+                    case WM_RBUTTONDOWN:
+                        MouseButtonEvent(input, MOUSE_BUTTON_RIGHT, true);
+                        break;
 
-                case WM_RBUTTONUP:
-                    MouseButtonEvent(input, MOUSE_BUTTON_RIGHT, false);
-                    break;
+                    case WM_RBUTTONUP:
+                        MouseButtonEvent(input, MOUSE_BUTTON_RIGHT, false);
+                        break;
 
-                case WM_SYSKEYDOWN:
-                case WM_KEYDOWN:
-                    KeyboardEvent(input, InputKey(msg.wParam), true);
-                    break;
+                    case WM_SYSKEYDOWN:
+                    case WM_KEYDOWN:
+                        KeyboardEvent(input, InputKey(msg.wParam), true);
+                        break;
 
-                case WM_SYSKEYUP:
-                case WM_KEYUP:
-                    KeyboardEvent(input, InputKey(msg.wParam), false);
-                    break;
-            }
+                    case WM_SYSKEYUP:
+                    case WM_KEYUP:
+                        KeyboardEvent(input, InputKey(msg.wParam), false);
+                        break;
+                }
             }
 
             // process input from joystick/gamepad
@@ -336,43 +330,6 @@ private:
     static void KeyboardEvent(Input &input, InputKey key, bool down)
     {
         SetKeyOrButtonState(down, input.keyboard.keys[key]);
-
-        switch (key) {
-            case KEY_LSHIFT:
-            case KEY_RSHIFT: {
-                bool keyison =
-                    input.keyboard.keys[KEY_LSHIFT] & BUTTON_DOWN ||
-                    input.keyboard.keys[KEY_RSHIFT] & BUTTON_DOWN;
-                SetShiftKeyState(keyison, KEY_SHIFT, input.keyboard.shifts);
-                break;
-            }
-
-            case KEY_LCONTROL:
-            case KEY_RCONTROL: {
-                bool keyison =
-                    input.keyboard.keys[KEY_LCONTROL] & BUTTON_DOWN ||
-                    input.keyboard.keys[KEY_RCONTROL] & BUTTON_DOWN;
-                SetShiftKeyState(keyison, KEY_CONTROL, input.keyboard.shifts);
-                break;
-            }
-
-            case KEY_LALT:
-            case KEY_RALT: {
-                bool keyison =
-                    input.keyboard.keys[KEY_LALT] & BUTTON_DOWN ||
-                    input.keyboard.keys[KEY_RALT] & BUTTON_DOWN;
-                SetShiftKeyState(keyison, KEY_ALT, input.keyboard.shifts);
-                break;
-            }
-
-            case KEY_NUMLOCK:
-                SetShiftKeyState(GetKeyState(VK_NUMLOCK) & 1, KEY_NUM, input.keyboard.shifts);
-                break;
-
-            case KEY_CAPITAL:
-                SetShiftKeyState(GetKeyState(VK_CAPITAL) & 1, KEY_CAPS, input.keyboard.shifts);
-                break;
-        }
     }
 
     // compare joystick/gamepad axis state and generate input event

@@ -2,6 +2,8 @@
     TETRIS FROM SCRATCH
     (C) livingcreative, 2015
 
+    https://github.com/livingcreative/brickgame
+
     feel free to use and modify
 */
 
