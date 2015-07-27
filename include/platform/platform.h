@@ -251,6 +251,74 @@ struct Input
     InputKeyboardState   keyboard;
     size_t               controller_count;
     InputControllerState controller[CONTROLLER_DEVICE_COUNT];
+
+    bool MouseButtonIsDown(InputMouseButton button) const
+    {
+        return ButtonOrKeyIsDown(mouse.buttons[button]);
+    }
+
+    bool MouseButtonPressed(InputMouseButton button) const
+    {
+        return
+            ButtonOrKeyIsDown(mouse.buttons[button]) &&
+            ButtonOrKeyStateChanged(mouse.buttons[button]);
+    }
+
+    bool MouseButtonReleased(InputMouseButton button) const
+    {
+        return
+            !ButtonOrKeyIsDown(mouse.buttons[button]) &&
+            ButtonOrKeyStateChanged(mouse.buttons[button]);
+    }
+
+    bool KeyIsDown(InputKey key) const
+    {
+        return ButtonOrKeyIsDown(keyboard.keys[key]);
+    }
+
+    bool KeyPressed(InputKey key) const
+    {
+        return
+            ButtonOrKeyIsDown(keyboard.keys[key]) &&
+            ButtonOrKeyStateChanged(keyboard.keys[key]);
+    }
+
+    bool KeyReleased(InputKey key) const
+    {
+        return
+            !ButtonOrKeyIsDown(keyboard.keys[key]) &&
+            ButtonOrKeyStateChanged(keyboard.keys[key]);
+    }
+
+    bool ControllerButtonIsDown(size_t contr, InputControllerButton button) const
+    {
+        return ButtonOrKeyIsDown(controller[contr].buttons[button]);
+    }
+
+    bool ControllerButtonPressed(size_t contr, InputControllerButton button) const
+    {
+        return
+            ButtonOrKeyIsDown(controller[contr].buttons[button]) &&
+            ButtonOrKeyStateChanged(controller[contr].buttons[button]);
+    }
+
+    bool ControllerButtonReleased(size_t contr, InputControllerButton button) const
+    {
+        return
+            !ButtonOrKeyIsDown(controller[contr].buttons[button]) &&
+            ButtonOrKeyStateChanged(controller[contr].buttons[button]);
+    }
+
+private:
+    static bool ButtonOrKeyIsDown(uint8_t state)
+    {
+        return (state & BUTTON_DOWN) != 0;
+    }
+
+    static bool ButtonOrKeyStateChanged(uint8_t state)
+    {
+        return (state & BUTTON_CHANGED) != 0;
+    }
 };
 
 
