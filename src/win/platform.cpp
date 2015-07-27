@@ -144,7 +144,8 @@ public:
         // application main loop
         while (running) {
             // reset change flags in input structure
-            input.mouse.wasmoved = false;
+            input.mouse.xdelta = 0;
+            input.mouse.ydelta = 0;
             for (size_t button = 0; button < MOUSE_BUTTON_COUNT; ++button) {
                 input.mouse.buttons[button] &= ~BUTTON_CHANGED;
             }
@@ -175,7 +176,6 @@ public:
                         input.mouse.ydelta = pt->y - input.mouse.y;
                         input.mouse.x = pt->x;
                         input.mouse.y = pt->y;
-                        input.mouse.wasmoved = true;
                         break;
                     }
 

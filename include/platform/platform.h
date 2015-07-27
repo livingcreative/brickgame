@@ -227,7 +227,6 @@ struct InputMouseState
     int     y;
     int     xdelta;
     int     ydelta;
-    bool    wasmoved;
     uint8_t buttons[MOUSE_BUTTON_COUNT];
 };
 

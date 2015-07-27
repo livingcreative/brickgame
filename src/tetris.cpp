@@ -60,7 +60,7 @@ public:
         }
 
         // debug output all events
-        if (input.mouse.wasmoved) {
+        if (input.mouse.xdelta || input.mouse.ydelta) {
             api.DEBUGPrint(
                 "Mouse moved to: %i %i (deltas: %i %i)\n",
                 input.mouse.x, input.mouse.y, input.mouse.xdelta, input.mouse.ydelta
