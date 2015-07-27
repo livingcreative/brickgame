@@ -14,6 +14,7 @@
 #include <Windows.h>
 #define DIRECTINPUT_VERSION 0x0800
 #include <dinput.h>
+#include <gl/GL.h>
 
 
 // window class name
@@ -45,72 +46,151 @@ struct InputDeviceList
 class Win32Application : public PlatformAPI
 {
 public:
-    Win32Application(HINSTANCE hInstance)
+    Win32Application(HINSTANCE hInstance) :
+        mainwindow(0),
+        input(nullptr),
+        gldc(0),
+        glrc(0)
     {
-        // there's a chance that RegisterClassA() and/or CreateWindowExA()
-        // call could fail, so their result should be checked
-        // however for the 2nd step this is not needed
+        // initialization error flag
+        bool initerror = false;
 
-        // register main window class
-        // window class describes window look and behaviour
-        WNDCLASSA wcl = {};
-        wcl.style         = CS_HREDRAW | CS_VREDRAW;
-        wcl.lpfnWndProc   = WndProc;
-        wcl.hInstance     = hInstance;
-        wcl.hIcon         = LoadIconA(0, IDI_APPLICATION);
-        wcl.hCursor       = LoadCursorA(0, IDC_ARROW);
-        wcl.hbrBackground = HBRUSH(COLOR_WINDOW + 1);
-        wcl.lpszClassName = MAIN_WINDOW_CLASS;
-        RegisterClassA(&wcl);
-
-        // create & show main window
-        mainwindow = CreateWindowExA(
-            0, MAIN_WINDOW_CLASS, "Tetris from scratch", WS_OVERLAPPEDWINDOW,
-            0, 0, CW_USEDEFAULT, CW_USEDEFAULT, 0, 0, hInstance, nullptr
-        );
-
-        // set to window user data pointer to this Win32Application object
-        SetWindowLongPtrA(mainwindow, GWLP_USERDATA, LONG_PTR(this));
-
-        // initialize input (DirectX Input)
-        input = nullptr;
         devlist.count = 0;
-        DirectInput8Create(
-            hInstance, DIRECTINPUT_VERSION, IID_IDirectInput8A,
-            reinterpret_cast<LPVOID*>(&input), nullptr
-        );
-        // this is totally fine to continue without DirectInput, so
-        // failure of DirectInput8Create is ignored
-        if (input) {
-            // enum joystick/gamepad devices
-            input->EnumDevices(
-                DI8DEVCLASS_GAMECTRL, DIEnumDevicesCallback,
-                &devlist, DIEDFL_ALLDEVICES
+
+        // this is "loop trick"
+        // if some initialization step failed - just break to skip other parts
+        // no exceptions, no crazy if-else checks
+        for (;;) {
+            // register main window class
+            // window class describes window look and behaviour
+            WNDCLASSA wcl = {};
+            wcl.style         = CS_HREDRAW | CS_VREDRAW | CS_OWNDC;
+            wcl.lpfnWndProc   = WndProc;
+            wcl.hInstance     = hInstance;
+            wcl.hIcon         = LoadIconA(0, IDI_APPLICATION);
+            wcl.hCursor       = LoadCursorA(0, IDC_ARROW);
+            wcl.hbrBackground = 0;
+            wcl.lpszClassName = MAIN_WINDOW_CLASS;
+            RegisterClassA(&wcl);
+
+            // create & show main window
+            mainwindow = CreateWindowExA(
+                0, MAIN_WINDOW_CLASS, "Tetris from scratch", WS_OVERLAPPEDWINDOW,
+                0, 0, CW_USEDEFAULT, CW_USEDEFAULT, 0, 0, hInstance, nullptr
             );
 
-            // initialize all devices found
-            for (size_t dev = 0; dev < devlist.count; ++dev) {
-                IDirectInputDevice8A *device = nullptr;
-                input->CreateDevice(devlist.devices[dev].giud, &device, nullptr);
-                devlist.devices[dev].device = device;
+            if (mainwindow == 0) {
+                DEBUGPrint("Couldn't create main window!\n");
+                initerror = true;
+                break;
+            }
 
-                if (device) {
-                    device->SetCooperativeLevel(
-                        mainwindow,
-                        DISCL_NONEXCLUSIVE | DISCL_FOREGROUND
-                    );
-                    device->SetDataFormat(&c_dfDIJoystick);
+            // set to window user data pointer to this Win32Application object
+            SetWindowLongPtrA(mainwindow, GWLP_USERDATA, LONG_PTR(this));
+
+            // initialize input (DirectX Input)
+            DirectInput8Create(
+                hInstance, DIRECTINPUT_VERSION, IID_IDirectInput8A,
+                reinterpret_cast<LPVOID*>(&input), nullptr
+            );
+            // this is totally fine to continue without DirectInput, so
+            // failure of DirectInput8Create is ignored
+            if (input == nullptr) {
+                // Direct input isn't critical part, game can be run without
+                // any Direct Input devices, just log failure
+                DEBUGPrint(
+                    "Couldn't initialize DirectInput, "
+                    "running game without game controller support!\n"
+                );
+            } else {
+                // enum joystick/gamepad devices
+                input->EnumDevices(
+                    DI8DEVCLASS_GAMECTRL, DIEnumDevicesCallback,
+                    &devlist, DIEDFL_ALLDEVICES
+                );
+
+                // initialize all devices found
+                for (size_t dev = 0; dev < devlist.count; ++dev) {
+                    IDirectInputDevice8A *device = nullptr;
+                    input->CreateDevice(devlist.devices[dev].giud, &device, nullptr);
+                    devlist.devices[dev].device = device;
+
+                    if (device) {
+                        device->SetCooperativeLevel(
+                            mainwindow,
+                            DISCL_NONEXCLUSIVE | DISCL_FOREGROUND
+                        );
+                        device->SetDataFormat(&c_dfDIJoystick);
+                    }
                 }
             }
+
+            // initialize OpenGL
+            // OpenGL initialization is platform specific, rest of the OpenGL is not
+            // so context initialization done in platform layer
+            gldc = GetDC(mainwindow);
+            if (gldc == 0) {
+                DEBUGPrint("Couldn't get device context of main window!\n");
+                initerror = true;
+                break;
+            }
+
+            // use default "old" pixel format initialization for now
+            PIXELFORMATDESCRIPTOR pfd = {};
+            pfd.nSize = sizeof(pfd);
+            pfd.nVersion = 1;
+            pfd.dwFlags = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
+            pfd.iPixelType = PFD_TYPE_RGBA;
+            pfd.cColorBits = 32;
+            pfd.cDepthBits = 0; // unless game is 3D don't use Z-buffer
+            int pfn = ChoosePixelFormat(gldc, &pfd);
+            if (pfn == 0) {
+                DEBUGPrint("Couldn't obtain OpenGL pixel format for main window!\n");
+                initerror = true;
+                break;
+            }
+
+            if (!SetPixelFormat(gldc, pfn, nullptr)) {
+                DEBUGPrint("Couldn't set OpenGL pixel format for main window!\n");
+                initerror = true;
+                break;
+            }
+
+            // create and set context
+            glrc = wglCreateContext(gldc);
+            if (glrc == 0) {
+                DEBUGPrint("Couldn't create OpenGL context!\n");
+                initerror = true;
+                break;
+            }
+            wglMakeCurrent(gldc, glrc);
+
+            // just for testing, set nice background color
+            glClearColor(0.2f, 0.4f, 1.0f, 1.0f);
+
+            // not to repeat forever loop
+            break;
         }
 
-        // actually here instead of SW_SHOWNORMAL parameter
-        // nCmdShow should be used, but who cares?
-        ShowWindow(mainwindow, SW_SHOWNORMAL);
+        running = !initerror;
+        if (!initerror) {
+            // actually here instead of SW_SHOWNORMAL parameter
+            // nCmdShow should be used, but who cares?
+            ShowWindow(mainwindow, SW_SHOWNORMAL);
+        }
     }
 
     ~Win32Application()
     {
+        // clean up OpenGL
+        if (glrc) {
+            wglMakeCurrent(0, 0);
+            wglDeleteContext(glrc);
+        }
+        if (gldc) {
+            ReleaseDC(mainwindow, gldc);
+        }
+
         // clean up input
         if (input) {
             for (size_t dev = 0; dev < devlist.count; ++dev) {
@@ -135,12 +215,15 @@ public:
 
     void Run()
     {
+        if (!running) {
+            return;
+        }
+
         Input input = {};
         input.controller_count = devlist.count;
 
         TetrisGame game;
 
-        running = true;
         // application main loop
         while (running) {
             // reset change flags in input structure
@@ -168,7 +251,7 @@ public:
                 TranslateMessage(&msg);
                 DispatchMessageA(&msg);
 
-                // process input from mouse/keyboard
+                // process input from mouse/keyboard and some other messages
                 switch (msg.message) {
                     case WM_MOUSEMOVE: {
                         POINTS *pt = reinterpret_cast<POINTS*>(&msg.lParam);
@@ -240,6 +323,8 @@ public:
 
             // pass input to game
             game.ProcessInput(*this, input);
+            // render frame
+            RenderGameFrame();
 
             // sleep 10ms
             Sleep(10);
@@ -307,6 +392,18 @@ private:
                     break;
                 }
                 return 0;
+
+            case WM_PAINT: {
+                PAINTSTRUCT ps;
+                BeginPaint(hwnd, &ps);
+                EndPaint(hwnd, &ps);
+
+                if (app) {
+                    app->RenderGameFrame();
+                }
+
+                return 0;
+            }
         }
 
         // process all other messages with system default handler
@@ -348,12 +445,27 @@ private:
         return TRUE;
     }
 
+    // render current game frame
+    void RenderGameFrame()
+    {
+        // set full window viewport for testing and clear entire back buffer
+        RECT rc;
+        GetClientRect(mainwindow, &rc);
+        glViewport(0, 0, rc.right, rc.bottom);
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        // display render result
+        SwapBuffers(gldc);
+    }
+
 private:
     bool             running;
     HWND             mainwindow;
 
     IDirectInput8A  *input;
     InputDeviceList  devlist;
+    HDC              gldc;
+    HGLRC            glrc;
 };
 
 
