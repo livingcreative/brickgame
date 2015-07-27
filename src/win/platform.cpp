@@ -14,7 +14,6 @@
 #include <Windows.h>
 #define DIRECTINPUT_VERSION 0x0800
 #include <dinput.h>
-#include "platform/platform.h"
 
 
 // window class name
@@ -139,7 +138,7 @@ public:
         Input input = {};
         input.controller_count = devlist.count;
 
-        Game game;
+        TetrisGame game;
 
         running = true;
         // application main loop

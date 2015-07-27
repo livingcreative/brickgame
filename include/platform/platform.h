@@ -338,7 +338,7 @@ public:
 
 
 // interface of game object platform expects
-class GameInterface
+class Game
 {
 public:
     // platform passes input data to game through this function

@@ -48,7 +48,7 @@
 
 
 // game class
-class Game : public GameInterface
+class TetrisGame : public Game
 {
 public:
     void ProcessInput(PlatformAPI &api, const Input &input) override
