@@ -7,11 +7,12 @@
 
 // platform independend engine functions
 
-static InputEvent *new_event(Input &input)
+// set key/button state
+static void SetKeyOrButtonState(bool down, uint8_t &state)
 {
-    if (input.event_count == INPUT_EVENT_COUNT) {
-        return nullptr;
-    } else {
-        return input.events + input.event_count++;
+    bool currentstate = state & BUTTON_DOWN;
+    state = down ? BUTTON_DOWN : 0;
+    if (currentstate != down) {
+        state |= BUTTON_CHANGED;
     }
 }

@@ -48,75 +48,75 @@
 
 
 // game class
-class Game
+class Game : public GameInterface
 {
 public:
-    void ProcessInput(PlatformAPI &api, const Input &input)
+    void ProcessInput(PlatformAPI &api, const Input &input) override
     {
         // check for ESC key for quit
-        if (input.keyboard.keys[KEY_ESCAPE]) {
+        if (input.keyboard.keys[KEY_ESCAPE] & BUTTON_DOWN) {
             api.Quit();
+            return;
         }
 
         // debug output all events
-        for (size_t e = 0; e < input.event_count; ++e) {
-            const InputEvent &event = input.events[e];
-            switch (event.type) {
-                case INPUT_MOUSE_DOWN:
-                    api.DEBUGPrint("Mouse %i button down\n", event.mouse.button);
-                    break;
+        if (input.mouse.wasmoved) {
+            api.DEBUGPrint(
+                "Mouse moved to: %i %i (deltas: %i %i)\n",
+                input.mouse.x, input.mouse.y, input.mouse.xdelta, input.mouse.ydelta
+            );
+        }
 
-                case INPUT_MOUSE_UP:
-                    api.DEBUGPrint("Mouse %i button up\n", event.mouse.button);
-                    break;
+        for (size_t mousebtn = 0; mousebtn < MOUSE_BUTTON_COUNT; ++mousebtn) {
+            if (input.mouse.buttons[mousebtn] & BUTTON_CHANGED) {
+                api.DEBUGPrint(
+                    "Mouse %i button %s\n",
+                    mousebtn,
+                    input.mouse.buttons[mousebtn] & BUTTON_DOWN ? "down" : "up"
+                );
+            }
+        }
 
-                case INPUT_MOUSE_MOVE:
-                    api.DEBUGPrint("Mouse moved: %i %i\n", event.mouse.x, event.mouse.y);
-                    break;
+        for (size_t key = 0; key < KEY_COUNT; ++key) {
+            if (input.keyboard.keys[key] & BUTTON_CHANGED) {
+                api.DEBUGPrint(
+                    "Key %i %s\n",
+                    key,
+                    input.keyboard.keys[key] & BUTTON_DOWN ? "down" : "up"
+                );
+            }
+        }
 
-                case INPUT_MOUSE_WHEEL:
-                    break;
+        for (size_t controller = 0; controller < CONTROLLER_DEVICE_COUNT; ++controller) {
+            const InputControllerState &cs = input.controller[controller];
 
-                case INPUT_KEY_DOWN:
-                    api.DEBUGPrint("Key %i down\n", event.keyboard.key);
-                    break;
-
-                case INPUT_KEY_UP:
-                    api.DEBUGPrint("Key %i up\n", event.keyboard.key);
-                    break;
-
-                case INPUT_CHAR:
-                    break;
-
-                case INPUT_BUTTON_DOWN:
+            for (size_t btn = 0; btn < CONT_BUTTON_COUNT; ++btn) {
+                if (cs.buttons[btn] & BUTTON_CHANGED) {
                     api.DEBUGPrint(
-                        "Joystick %i button %i down\n",
-                        event.joystick.number, event.joystick.button
+                        "Controller %i button %i %s\n",
+                        controller, btn,
+                        cs.buttons[btn] & BUTTON_DOWN ? "down" : "up"
                     );
-                    break;
+                }
+            }
 
-                case INPUT_BUTTON_UP:
+            for (size_t axis = 0; axis < CONT_AXIS_COUNT; ++axis) {
+                if (cs.axesdelta[axis] != 0) {
                     api.DEBUGPrint(
-                        "Joystick %i button %i up\n",
-                        event.joystick.number, event.joystick.button
+                        "Controller %i axis %i moved to %.2f (delta: %.2f)\n",
+                        controller, axis,
+                        cs.axes[axis], cs.axesdelta[axis]
                     );
-                    break;
+                }
+            }
 
-                case INPUT_AXIS:
+            for (size_t pov = 0; pov < CONT_POV_COUNT; ++pov) {
+                if (cs.povsmoved[pov]) {
                     api.DEBUGPrint(
-                        "Joystick %i axis %i moved to %i\n",
-                        event.joystick.number, event.joystick.axis.axis,
-                        event.joystick.axis.value
+                        "Controller %i POV %i moved to %i\n",
+                        controller, pov, cs.povs[pov]
                     );
-                    break;
-
-                case INPUT_POV:
-                    api.DEBUGPrint(
-                        "Joystick %i pov %i moved to %i\n",
-                        event.joystick.number, event.joystick.pov.pov,
-                        event.joystick.pov.value
-                    );
-                    break;
+                }
             }
         }
     }

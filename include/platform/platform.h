@@ -151,95 +151,84 @@ enum InputKeyboardShift
     KEY_CAPS    = 0x10
 };
 
-enum InputJoystickDeviceCount
+enum InputControllerDeviceCount
 {
-    JOYSTICK_DEVICE_COUNT = 4
+    CONTROLLER_DEVICE_COUNT = 4
 };
 
-enum InputJoystickButton
+enum InputControllerButton
 {
-    JOY_BUTTON_0,
-    JOY_BUTTON_1,
-    JOY_BUTTON_2,
-    JOY_BUTTON_3,
-    JOY_BUTTON_4,
-    JOY_BUTTON_5,
-    JOY_BUTTON_6,
-    JOY_BUTTON_7,
-    JOY_BUTTON_8,
-    JOY_BUTTON_9,
-    JOY_BUTTON_10,
-    JOY_BUTTON_11,
-    JOY_BUTTON_12,
-    JOY_BUTTON_13,
-    JOY_BUTTON_14,
-    JOY_BUTTON_15,
-    JOY_BUTTON_16,
-    JOY_BUTTON_17,
-    JOY_BUTTON_18,
-    JOY_BUTTON_19,
-    JOY_BUTTON_20,
-    JOY_BUTTON_21,
-    JOY_BUTTON_22,
-    JOY_BUTTON_23,
-    JOY_BUTTON_24,
-    JOY_BUTTON_25,
-    JOY_BUTTON_26,
-    JOY_BUTTON_27,
-    JOY_BUTTON_28,
-    JOY_BUTTON_29,
-    JOY_BUTTON_30,
-    JOY_BUTTON_31,
-    JOY_BUTTON_COUNT
+    CONT_BUTTON_0,
+    CONT_BUTTON_1,
+    CONT_BUTTON_2,
+    CONT_BUTTON_3,
+    CONT_BUTTON_4,
+    CONT_BUTTON_5,
+    CONT_BUTTON_6,
+    CONT_BUTTON_7,
+    CONT_BUTTON_8,
+    CONT_BUTTON_9,
+    CONT_BUTTON_10,
+    CONT_BUTTON_11,
+    CONT_BUTTON_12,
+    CONT_BUTTON_13,
+    CONT_BUTTON_14,
+    CONT_BUTTON_15,
+    CONT_BUTTON_16,
+    CONT_BUTTON_17,
+    CONT_BUTTON_18,
+    CONT_BUTTON_19,
+    CONT_BUTTON_20,
+    CONT_BUTTON_21,
+    CONT_BUTTON_22,
+    CONT_BUTTON_23,
+    CONT_BUTTON_24,
+    CONT_BUTTON_25,
+    CONT_BUTTON_26,
+    CONT_BUTTON_27,
+    CONT_BUTTON_28,
+    CONT_BUTTON_29,
+    CONT_BUTTON_30,
+    CONT_BUTTON_31,
+    CONT_BUTTON_COUNT
 };
 
-enum InputJoystickAxis
+enum InputControllerAxis
 {
-    JOY_AXIS_0,
-    JOY_AXIS_1,
-    JOY_AXIS_2,
-    JOY_AXIS_3,
-    JOY_AXIS_4,
-    JOY_AXIS_5,
-    JOY_AXIS_6,
-    JOY_AXIS_7,
-    JOY_AXIS_COUNT
+    CONT_AXIS_0,
+    CONT_AXIS_1,
+    CONT_AXIS_2,
+    CONT_AXIS_3,
+    CONT_AXIS_4,
+    CONT_AXIS_5,
+    CONT_AXIS_6,
+    CONT_AXIS_7,
+    CONT_AXIS_COUNT
 };
 
-enum InputJoystickPOV
+enum InputControllerPOV
 {
-    JOY_POV_0,
-    JOY_POV_1,
-    JOY_POV_2,
-    JOY_POV_3,
-    JOY_POV_COUNT
+    CONT_POV_0,
+    CONT_POV_1,
+    CONT_POV_2,
+    CONT_POV_3,
+    CONT_POV_COUNT
 };
 
-enum InputEventType
+enum InputButtonState
 {
-    INPUT_MOUSE_DOWN,  // mouse button down
-    INPUT_MOUSE_UP,    // mouse button up
-    INPUT_MOUSE_MOVE,  // mouse movement
-    INPUT_MOUSE_WHEEL, // mouse wheel (scroll)
-    INPUT_KEY_DOWN,    // keyboard key down
-    INPUT_KEY_UP,      // keyboard key up
-    INPUT_CHAR,        // keyboard typing character
-    INPUT_BUTTON_DOWN, // joystick/gamepad button down
-    INPUT_BUTTON_UP,   // joystick/gamepad button up
-    INPUT_AXIS,        // joystick/gamepad axis change
-    INPUT_POV          // joystick/gamepad POV change
-};
-
-enum InputEventCount
-{
-    INPUT_EVENT_COUNT = 64
+    BUTTON_DOWN    = 0x01,
+    BUTTON_CHANGED = 0x02
 };
 
 struct InputMouseState
 {
-    int      x;
-    int      y;
-    uint32_t buttons;
+    int     x;
+    int     y;
+    int     xdelta;
+    int     ydelta;
+    bool    wasmoved;
+    uint8_t buttons[MOUSE_BUTTON_COUNT];
 };
 
 struct InputKeyboardState
@@ -248,72 +237,43 @@ struct InputKeyboardState
     uint32_t shifts;
 };
 
-struct InputJoystickState
+struct InputControllerState
 {
-    uint32_t buttons;
-    int      axes[JOY_AXIS_COUNT];
-    int      povs[JOY_POV_COUNT];
-};
-
-struct InputEventMouse
-{
-    int              x;
-    int              y;
-    InputMouseButton button;
-    int              wheel;
-};
-
-struct InputEventKeyboard
-{
-    InputKey key;
-};
-
-struct InputEventJoystickAxis
-{
-    InputJoystickAxis axis;
-    int               value;
-};
-
-struct InputEventJoystickPOV
-{
-    InputJoystickPOV pov;
-    int              value;
-};
-
-struct InputEventJoystick
-{
-    uint32_t number;
-    union {
-        InputJoystickButton    button;
-        InputEventJoystickAxis axis;
-        InputEventJoystickPOV  pov;
-    };
-};
-
-struct InputEvent
-{
-    InputEventType type;
-    union {
-        InputEventMouse    mouse;
-        InputEventKeyboard keyboard;
-        InputEventJoystick joystick;
-    };
+    uint8_t buttons[CONT_BUTTON_COUNT];
+    float   axes[CONT_AXIS_COUNT];
+    float   axesdelta[CONT_AXIS_COUNT];
+    int     povs[CONT_POV_COUNT];
+    bool    povsmoved[CONT_POV_COUNT];
 };
 
 struct Input
 {
-    InputMouseState    mouse;
-    InputKeyboardState keyboard;
-    InputJoystickState joystick[JOYSTICK_DEVICE_COUNT];
-    size_t             event_count;
-    InputEvent         events[INPUT_EVENT_COUNT];
+    InputMouseState      mouse;
+    InputKeyboardState   keyboard;
+    size_t               controller_count;
+    InputControllerState controller[CONTROLLER_DEVICE_COUNT];
 };
 
 
+
+// interface of platform API which is exposed to game class
 class PlatformAPI
 {
 public:
+    // general platform API functions
+    //      finish application execution
     virtual void Quit() = 0;
 
+    // DEBUG platform API functions
+    //      prints formatted message to debug output
     virtual void DEBUGPrint(const char *format, ...) = 0;
+};
+
+
+// interface of game object platform expects
+class GameInterface
+{
+public:
+    // platform passes input data to game through this function
+    virtual void ProcessInput(PlatformAPI &api, const Input &input) = 0;
 };
