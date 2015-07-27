@@ -319,12 +319,6 @@ private:
         SetKeyOrButtonState(down, input.mouse.buttons[button]);
     }
 
-    // change shift bits
-    static void SetShiftKeyState(bool keyison, InputKeyboardShift shiftflag, uint32_t &shifts)
-    {
-        keyison ? shifts |= shiftflag : shifts &= ~shiftflag;
-    }
-
     // set keyboard state
     static void KeyboardEvent(Input &input, InputKey key, bool down)
     {
