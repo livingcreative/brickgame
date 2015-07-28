@@ -64,7 +64,7 @@ public:
             // register main window class
             // window class describes window look and behaviour
             WNDCLASSA wcl = {};
-            wcl.style         = CS_HREDRAW | CS_VREDRAW | CS_OWNDC;
+            wcl.style         = CS_HREDRAW | CS_VREDRAW;
             wcl.lpfnWndProc   = WndProc;
             wcl.hInstance     = hInstance;
             wcl.hIcon         = LoadIconA(0, IDI_APPLICATION);
@@ -448,12 +448,8 @@ private:
     // render current game frame
     void RenderGameFrame()
     {
-        // set full window viewport for testing and clear entire back buffer
-        RECT rc;
-        GetClientRect(mainwindow, &rc);
-        glViewport(0, 0, rc.right, rc.bottom);
+        // clear whole back buffer
         glClear(GL_COLOR_BUFFER_BIT);
-
         // display render result
         SwapBuffers(gldc);
     }
